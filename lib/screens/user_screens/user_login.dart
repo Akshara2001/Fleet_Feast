@@ -214,16 +214,16 @@ class _UserLoginState extends State<UserLogin> {
                         child: Text.rich(
                           TextSpan(
                             text: "Don't have an account?",
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 12.0,
                               fontWeight: FontWeight.w100,
-                              color: _signupColor,
+                              color: AppColors.grey,
                             ),
                             children: <TextSpan>[
                               TextSpan(
                                 text: ' Sign Up ',
-                                style: const TextStyle(
-                                  color: AppColors.orange200,
+                                style: TextStyle(
+                                  color: _signupColor,
                                   decoration: TextDecoration.underline,
                                   decorationColor: AppColors.orange200,
                                 ),

@@ -199,7 +199,7 @@ class _UserFeedbackState extends State<UserFeedback> {
             "Your Opinion is Our Secret Ingredient",
             style: TextStyle(
               color: AppColors.grey,
-              fontSize: 12.0,
+              fontSize: 13.0,
               fontWeight: FontWeight.w300,
             ),
           ),

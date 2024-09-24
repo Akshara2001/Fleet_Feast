@@ -1,3 +1,4 @@
+import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_application_1/theme/colors.dart';
@@ -15,6 +16,15 @@ class _UserMenuState extends State<UserMenu> {
     {"title": "Lunch", "image": "assets/images/lunch.jpeg"},
     {"title": "Dinner", "image": "assets/images/dinner.jpeg"},
   ];
+  final List<String> weekdays = [
+    'Mon',
+    'Tue',
+    'Wed',
+    'Thu',
+    'Fri',
+    'Sat',
+    'Sun'
+  ];
 
   bool _switchValue = true;
   int activeIndex = 0;
@@ -31,10 +41,44 @@ class _UserMenuState extends State<UserMenu> {
     fetchWeeklyMenu();
   }
 
+  Map<String, String> getCurrentWeekRange() {
+    DateTime now = DateTime.now();
+    int dayOfWeek = now.weekday;
+
+    // Calculate start and end of the week
+    DateTime startOfWeek =
+        now.subtract(Duration(days: dayOfWeek - 1)); // Monday
+    DateTime endOfWeek = now.add(Duration(days: 7 - dayOfWeek)); // Sunday
+
+    // Format the dates as 'YYYY-MM-DD'
+    String formattedStart = DateFormat('yyyy-MM-dd').format(startOfWeek);
+    String formattedEnd = DateFormat('yyyy-MM-dd').format(endOfWeek);
+
+    return {
+      'start': formattedStart,
+      'end': formattedEnd,
+    };
+  }
+
   Future<void> fetchWeeklyMenu() async {
+    String unitId = "FzdQ5CB2iEiYBuVd4uBP";
     try {
       final firestore = FirebaseFirestore.instance;
-      final snapshot = await firestore.collection('daily_menus').get();
+
+      // Get start and end dates of the current week
+      final week = getCurrentWeekRange();
+      String startDate = week['start']!;
+      String endDate = week['end']!;
+
+      // Query Firestore collection with unit_id, date range, and order by date
+      final snapshot = await firestore
+          .collection('daily_menus')
+          .where('unit_id', isEqualTo: unitId)
+          .where('date', isGreaterThanOrEqualTo: startDate)
+          .where('date', isLessThanOrEqualTo: endDate)
+          .orderBy('date', descending: false)
+          .get();
+
       final List<Map<String, dynamic>> fetchedMenu = snapshot.docs.map((doc) {
         final data = doc.data();
         return {
@@ -95,12 +139,12 @@ class _UserMenuState extends State<UserMenu> {
 
   // MenuHeader Widget
   Widget _MenuHeader() {
-    return Column(
+    return const Column(
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               "Peek into the menu &",
               style: TextStyle(
                 color: AppColors.black,
@@ -108,36 +152,10 @@ class _UserMenuState extends State<UserMenu> {
                 fontWeight: FontWeight.w100,
               ),
             ),
-            SizedBox(
-              height: 22, // Set your desired height here
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  // Handle the download action here
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.orange200.withOpacity(0.7),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6.0),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 6.0, vertical: 2.0),
-                ),
-                icon: const Icon(
-                  Icons.download,
-                  color: Colors.white,
-                  size: 15.0,
-                ),
-                label: const Text(
-                  "Weekly Menu",
-                  style: TextStyle(fontSize: 10.0),
-                ),
-              ),
-            )
           ],
         ),
-        const SizedBox(height: 5.0),
-        const Row(
+        SizedBox(height: 5.0),
+        Row(
           children: [
             Text(
               "Say if you are in!",
@@ -155,88 +173,65 @@ class _UserMenuState extends State<UserMenu> {
 
   // DaySelector Widget
   Widget _buildDaySelector() {
+    // Limit the weekly menu to the first 7 items
+    final limitedMenu =
+        weeklyMenu.length > 7 ? weeklyMenu.sublist(0, 7) : weeklyMenu;
+
     return SizedBox(
-      height: 60.0, // Adjust height as needed
-      child: Stack(
-        children: [
-          PageView.builder(
-            controller: _pageController,
-            itemCount: weeklyMenu.length,
-            onPageChanged: (index) {
-              setState(() {
-                activeIndex = index;
-                activeMeal =
-                    "Breakfast"; // Reset meal to Breakfast when changing day
-              });
-            },
-            itemBuilder: (context, index) {
-              bool isActive = activeIndex == index;
-              return Center(
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      activeIndex = index;
-                      activeMeal =
-                          "Breakfast"; // Reset meal to Breakfast when changing day
-                    });
-                  },
-                  child: Container(
-                    width: 100,
-                    margin: const EdgeInsets.symmetric(
-                        horizontal: 8.0), // Add horizontal margin
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20.0),
-                      color:
-                          isActive ? AppColors.orange200 : Colors.transparent,
-                    ),
-                    alignment: Alignment.center,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          weeklyMenu[index]["date"], // Show complete date
-                          style: TextStyle(
-                            color: isActive ? Colors.white : AppColors.grey,
-                            fontWeight:
-                                isActive ? FontWeight.bold : FontWeight.normal,
-                          ),
-                        ),
-                      ],
+      height: 70.0, // Adjust height as needed
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: List.generate(limitedMenu.length, (index) {
+          bool isActive = activeIndex == index;
+
+          // Get the day from the weekdays list
+          String dayOfWeek = weekdays[index % 7];
+
+          return Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                dayOfWeek,
+                style: const TextStyle(color: AppColors.black),
+              ),
+              const SizedBox(height: 6.0), // Spacing between day and date
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    activeIndex = index;
+                    activeMeal =
+                        "Breakfast"; // Reset meal to Breakfast when a day is selected
+                  });
+                },
+                child: Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isActive
+                        ? AppColors.orange200
+                        : Colors.transparent, // Highlight active day
+                    border: Border.all(
+                        color: isActive
+                            ? AppColors.orange200
+                            : Colors.transparent),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    limitedMenu[index]["date"]
+                        .toString()
+                        .substring(8, 10), // Show date (DD format)
+                    style: TextStyle(
+                      color: isActive ? Colors.white : Colors.grey[500],
+                      fontWeight:
+                          isActive ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
                 ),
-              );
-            },
-          ),
-          Positioned(
-            left: 0,
-            top: 0,
-            bottom: 0,
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back_ios),
-              onPressed: () {
-                _pageController.previousPage(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                );
-              },
-            ),
-          ),
-          Positioned(
-            right: 0,
-            top: 0,
-            bottom: 0,
-            child: IconButton(
-              icon: const Icon(Icons.arrow_forward_ios),
-              onPressed: () {
-                _pageController.nextPage(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                );
-              },
-            ),
-          ),
-        ],
+              ),
+            ],
+          );
+        }),
       ),
     );
   }

@@ -13,7 +13,7 @@ class UserHomepage extends StatefulWidget {
 }
 
 class _UserHomepageState extends State<UserHomepage> {
-  int currentPageIndex = 0;
+  int currentPageIndex = 1;
   String wardroomName = "Valsura";
 
   void _onItemTapped(int index) {
@@ -67,12 +67,12 @@ class _UserHomepageState extends State<UserHomepage> {
             icon: Icon(
               Icons.rate_review_outlined,
               color: Colors.grey[400],
-              size: 35.0,
+              size: 30.0,
             ),
             selectedIcon: const Icon(
               Icons.rate_review_outlined,
               color: AppColors.orange200,
-              size: 42.0,
+              size: 30.0,
             ),
             isSelected: currentPageIndex == 0,
             onTap: () => _onItemTapped(0),
@@ -81,12 +81,12 @@ class _UserHomepageState extends State<UserHomepage> {
             icon: Icon(
               Icons.restaurant_menu,
               color: Colors.grey[400],
-              size: 35.0,
+              size: 30.0,
             ),
             selectedIcon: const Icon(
               Icons.restaurant_menu,
               color: AppColors.orange200,
-              size: 42.0,
+              size: 30.0,
             ),
             isSelected: currentPageIndex == 1,
             onTap: () => _onItemTapped(1),
@@ -95,12 +95,12 @@ class _UserHomepageState extends State<UserHomepage> {
             icon: Icon(
               Icons.account_circle_outlined,
               color: Colors.grey[400],
-              size: 35.0,
+              size: 30.0,
             ),
             selectedIcon: const Icon(
               Icons.account_circle_outlined,
               color: AppColors.orange200,
-              size: 42.0,
+              size: 30.0,
             ),
             isSelected: currentPageIndex == 2,
             onTap: () => _onItemTapped(2),
