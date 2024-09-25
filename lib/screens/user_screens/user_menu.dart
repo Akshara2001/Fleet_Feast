@@ -1,3 +1,5 @@
+import 'package:flutter_application_1/screens/user_screens/user.dart';
+import 'package:flutter_application_1/screens/user_screens/user_profile.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -11,6 +13,8 @@ class UserMenu extends StatefulWidget {
 }
 
 class _UserMenuState extends State<UserMenu> {
+  final FirebaseFirestore firestore = FirebaseFirestore.instance;
+
   final List<Map<String, String>> meals = [
     {"title": "Breakfast", "image": "assets/images/cereals.jpeg"},
     {"title": "Lunch", "image": "assets/images/lunch.jpeg"},
@@ -26,14 +30,11 @@ class _UserMenuState extends State<UserMenu> {
     'Sun'
   ];
 
-  bool _switchValue = true;
   int activeIndex = 0;
   String activeMeal = "Breakfast";
 
   List<Map<String, dynamic>> weeklyMenu = [];
   bool isLoading = true;
-
-  final PageController _pageController = PageController();
 
   @override
   void initState() {
@@ -63,13 +64,13 @@ class _UserMenuState extends State<UserMenu> {
   Future<void> fetchWeeklyMenu() async {
     String unitId = "FzdQ5CB2iEiYBuVd4uBP";
     try {
-      final firestore = FirebaseFirestore.instance;
-
       // Get start and end dates of the current week
       final week = getCurrentWeekRange();
       String startDate = week['start']!;
       String endDate = week['end']!;
 
+      User? userData = await fetchUserData();
+      final email = userData?.email;
       // Query Firestore collection with unit_id, date range, and order by date
       final snapshot = await firestore
           .collection('daily_menus')
@@ -81,11 +82,32 @@ class _UserMenuState extends State<UserMenu> {
 
       final List<Map<String, dynamic>> fetchedMenu = snapshot.docs.map((doc) {
         final data = doc.data();
+        bool breakfastResp = true;
+        bool lunchResp = true;
+        bool dinnerResp = true;
+
+        if (data['breakfast_response'] != null &&
+            data['breakfast_response'][email] != null) {
+          breakfastResp = data['breakfast_response'][email];
+        }
+        if (data['lunch_response'] != null &&
+            data['lunch_response'][email] != null) {
+          lunchResp = data['lunch_response'][email];
+        }
+        if (data['dinner_response'] != null &&
+            data['dinner_response'][email] != null) {
+          dinnerResp = data['dinner_response'][email];
+        }
+
         return {
           "date": data['date'],
+          "unit_id": data['unit_id'],
           "breakfast": List<String>.from(data['breakfast'] ?? []),
           "lunch": List<String>.from(data['lunch'] ?? []),
           "dinner": List<String>.from(data['dinner'] ?? []),
+          "breakfast_response": breakfastResp,
+          "lunch_response": lunchResp,
+          "dinner_response": dinnerResp,
         };
       }).toList();
 
@@ -98,8 +120,26 @@ class _UserMenuState extends State<UserMenu> {
       setState(() {
         isLoading = false;
       });
-      // Optionally, show an error message to the user
     }
+  }
+
+  Future<void> sendResponse(
+      String date, String unitId, String activeMeal, bool value) async {
+    print('response is send to ${date} for ${activeMeal} ');
+    User? data = await fetchUserData();
+    final email = data?.email;
+    final snapshot = await firestore
+        .collection('daily_menus')
+        .where('unit_id', isEqualTo: unitId)
+        .where('date', isEqualTo: date)
+        .get();
+    final List<String> docIdList = snapshot.docs.map((doc) {
+      return doc.id;
+    }).toList();
+
+    await firestore.collection('daily_menus').doc(docIdList[0]).set({
+      activeMeal: {email: value},
+    }, SetOptions(merge: true));
   }
 
   @override
@@ -323,11 +363,18 @@ class _UserMenuState extends State<UserMenu> {
                 child: FittedBox(
                   fit: BoxFit.fill,
                   child: Switch(
-                    value: _switchValue,
+                    value: weeklyMenu[activeIndex]
+                        ['${activeMeal.toLowerCase()}_response'],
                     onChanged: (bool value) {
                       setState(() {
-                        _switchValue = value;
-                        // Handle the switch value change here
+                        weeklyMenu[activeIndex]
+                            ['${activeMeal.toLowerCase()}_response'] = value;
+                        print('${activeMeal.toLowerCase()}_response');
+                        sendResponse(
+                            weeklyMenu[activeIndex]['date'],
+                            weeklyMenu[activeIndex]['unit_id'],
+                            '${activeMeal.toLowerCase()}_response',
+                            value);
                       });
                     },
                     activeTrackColor: Colors.green[400],

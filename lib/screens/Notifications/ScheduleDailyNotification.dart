@@ -42,12 +42,12 @@ class ScheduleDailyNotification {
 
   Future<void> allLocalNotificationsinCron() async {
     print("Cron Job for Local Notifications.............");
-    Map<String, String> dailyMenus = await _fetchDailyMenusFromDatabase();
+    Map<String, dynamic> dailyMenus = await _fetchDailyMenusFromDatabase();
 
     await showSimpleNotification(
       title: 'Breakfast',
       body: dailyMenus['Breakfast'] ?? 'No data available',
-      payload: "Dhiraj", // Assuming breakfast is at 8 AM
+      payload: "Indian Navy", // Assuming breakfast is at 8 AM
     );
   }
 
@@ -77,13 +77,14 @@ class ScheduleDailyNotification {
 
     DateTime? startDate = user?.fromDate; // dd-MM-yyyy format
     DateTime? endDate = user?.toDate;
+    DateTime? lastDate = user?.lastDate;
 
     DateTime today = DateTime.now();
 
-    if (startDate != null && endDate != null) {
-      if (today.isAfter(startDate) && today.isBefore(endDate) ||
-          today.isAtSameMomentAs(startDate) ||
-          today.isAtSameMomentAs(endDate)) {
+    if (startDate != null && endDate != null && lastDate != null) {
+      if ((today.isAfter(startDate) || today.isAtSameMomentAs(startDate)) &&
+          (today.isBefore(endDate) || today.isAtSameMomentAs(endDate)) &&
+          today.isAfter(lastDate)) {
         isUserNotPresent = true;
       }
     }
@@ -94,35 +95,44 @@ class ScheduleDailyNotification {
       print(
           'Current date is between start date and end date. USER not present');
     } else {
-      Map<String, String> dailyMenus = await _fetchDailyMenusFromDatabase();
-      Map<String, String?>? documentid = {
+      Map<String, dynamic> dailyMenus = await _fetchDailyMenusFromDatabase();
+      Map<String, String?> documentid = <String, String?>{
         'document_id': dailyMenus['document_id'],
-        'tommorow_document_id': dailyMenus['tommorow_document_id']
+        'tomorrow_document_id': dailyMenus['tomorrow_document_id']
       };
 
       documentid['meal_title'] = "breakfast";
-      await scheduleNotification(
-        title: '☕ BREAKFAST alert! Not joining us? tap "No"',
-        body: dailyMenus['Breakfast'] ?? 'No data available',
-        documentId: documentid,
-        hour: 8, // Assuming breakfast is at 8 AM
-      );
+      if (dailyMenus['breakfast_response'] != null &&
+          dailyMenus['breakfast_response']) {
+        await scheduleNotification(
+          title: '☕ BREAKFAST alert! Not joining us? tap "No"',
+          body: dailyMenus['Breakfast'] ?? 'No data available',
+          documentId: documentid,
+          hour: 8, // Assuming breakfast is at 8 AM
+        );
+      }
 
       documentid['meal_title'] = "Lunch";
-      await scheduleNotification(
-        title: '🍚 LUNCH alert! Not joining us? tap "No"',
-        body: dailyMenus['Lunch'] ?? 'No data available',
-        documentId: documentid,
-        hour: 12, // Assuming lunch is at 12 PM
-      );
+      if (dailyMenus['lunch_response'] != null &&
+          dailyMenus['lunch_response']) {
+        await scheduleNotification(
+          title: '🍚 LUNCH alert! Not joining us? tap "No"',
+          body: dailyMenus['Lunch'] ?? 'No data available',
+          documentId: documentid,
+          hour: 12, // Assuming lunch is at 12 PM
+        );
+      }
 
       documentid['meal_title'] = "dinner";
-      await scheduleNotification(
-        title: '🍴 DINNER alert! Not joining us? tap "No"',
-        body: dailyMenus['Dinner'] ?? 'No data available',
-        documentId: documentid,
-        hour: 18, // Assuming dinner is at 6 PM
-      );
+      if (dailyMenus['dinner_response'] != null &&
+          dailyMenus['dinner_response']) {
+        await scheduleNotification(
+          title: '🍴 DINNER alert! Not joining us? tap "No"',
+          body: dailyMenus['Dinner'] ?? 'No data available',
+          documentId: documentid,
+          hour: 18, // Assuming dinner is at 6 PM
+        );
+      }
     }
   }
 
@@ -194,20 +204,23 @@ class ScheduleDailyNotification {
     String? preference = user?.preference;
 
     String docId = documentId?['document_id'] ?? "Not Found ID";
-    String filedCount = '${title!.toLowerCase()}_count';
+    String fieldCount = '${title!.toLowerCase()}_count';
 
     if (title.toLowerCase() == 'breakfast') {
-      docId = documentId?['tommorow_document_id'] ?? "Not Found ID";
+      docId = documentId?['tomorrow_document_id'] ?? "Not Found ID";
+    }
+    if (title.toLowerCase() == 'lunch') {
+      docId = documentId?['tomorrow_document_id'] ?? "Not Found ID";
     }
 
     if (preference == "nonveg") {
-      filedCount = '${title.toLowerCase()}_count.non_veg';
+      fieldCount = '${title.toLowerCase()}_count.non_veg';
     } else {
-      filedCount = '${title.toLowerCase()}_count.veg';
+      fieldCount = '${title.toLowerCase()}_count.veg';
     }
 
     await _firestore.collection('daily_menus').doc(docId).update({
-      filedCount: FieldValue.increment(-1),
+      fieldCount: FieldValue.increment(-1),
     });
   }
 
@@ -222,7 +235,7 @@ class ScheduleDailyNotification {
     String filedCount = '${title!.toLowerCase()}_count';
 
     if (title.toLowerCase() == 'breakfast') {
-      docId = documentId?['tommorow_document_id'] ?? "Not Found ID";
+      docId = documentId?['tomorrow_document_id'] ?? "Not Found ID";
     }
 
     if (preference == "nonveg") {
@@ -244,7 +257,7 @@ class ScheduleDailyNotification {
     String filedCount = '${title!.toLowerCase()}_count';
 
     if (title.toLowerCase() == 'breakfast') {
-      docId = documentId?['tommorow_document_id'] ?? "Not Found ID";
+      docId = documentId?['tomorrow_document_id'] ?? "Not Found ID";
     }
 
     if (preference == "veg") {
@@ -266,44 +279,61 @@ class ScheduleDailyNotification {
     }
   }
 
-  Future<Map<String, String>> _fetchDailyMenusFromDatabase() async {
-    Map<String, String> allMenusOfDay = {};
-    User? user = await fetchUserData();
-    QuerySnapshot<Map<String, dynamic>>? dailyMenusData =
-        await getMenusDataFromCloud();
+  Future<Map<String, dynamic>> _fetchDailyMenusFromDatabase() async {
+    Map<String, dynamic> allMenusOfDay = {};
+    User? userData = await fetchUserData();
+    final email = userData?.email;
+    String unitId = "FzdQ5CB2iEiYBuVd4uBP";
+    String currentDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    String tomorrowDate = DateFormat('yyyy-MM-dd')
+        .format(DateTime.now().add(const Duration(days: 1)));
 
-    if (dailyMenusData != null) {
-      String currentDate = DateFormat('dd-MM-yyyy').format(DateTime.now());
-      String tomorrowDate = DateFormat('dd-MM-yyyy')
-          .format(DateTime.now().add(const Duration(days: 1)));
+    // Fetch data from Firestore
+    QuerySnapshot<Map<String, dynamic>> snapshot = await _firestore
+        .collection('daily_menus')
+        .where('unit_id', isEqualTo: unitId)
+        .where('date', isGreaterThanOrEqualTo: currentDate)
+        .where('date', isLessThanOrEqualTo: tomorrowDate)
+        .orderBy('date', descending: false)
+        .get();
 
-      for (QueryDocumentSnapshot<Map<String, dynamic>> doc
-          in dailyMenusData.docs) {
+    if (snapshot.docs.isNotEmpty) {
+      for (QueryDocumentSnapshot<Map<String, dynamic>> doc in snapshot.docs) {
         Map<String, dynamic> data = doc.data();
         String menuDate = data['date'] ?? '';
-
         if (menuDate == currentDate) {
-          // Convert array to string
-          var lunchArray = data['lunch'] as List?;
-          allMenusOfDay['Lunch'] = lunchArray?.join(', ') ?? 'No data';
-
           var dinnerArray = data['dinner'] as List?;
           allMenusOfDay['Dinner'] = dinnerArray?.join(', ') ?? 'No data';
-
+          if (data['dinner_response'] != null &&
+              data['dinner_response'][email] != null) {
+            allMenusOfDay['dinner_response'] = data['dinner_response'][email];
+          }
           allMenusOfDay['document_id'] = doc.id;
         }
 
         if (menuDate == tomorrowDate) {
-          // Convert array to string
           var breakfastArray = data['breakfast'] as List?;
           allMenusOfDay['Breakfast'] = breakfastArray?.join(', ') ?? 'No data';
+          if (data['breakfast_response'] != null &&
+              data['breakfast_response'][email] != null) {
+            allMenusOfDay['breakfast_response'] =
+                data['breakfast_response'][email];
+          }
 
-          allMenusOfDay['tommorow_document_id'] = doc.id;
+          var lunchArray = data['lunch'] as List?;
+          allMenusOfDay['Lunch'] = lunchArray?.join(', ') ?? 'No data';
+          if (data['lunch_response'] != null &&
+              data['lunch_response'][email] != null) {
+            allMenusOfDay['lunch_response'] = data['lunch_response'][email];
+          }
+
+          allMenusOfDay['tomorrow_document_id'] = doc.id;
         }
       }
     } else {
       print("No data found or failed to fetch data.");
     }
+
     return allMenusOfDay;
   }
 }
