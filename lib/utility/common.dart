@@ -154,46 +154,6 @@ Future<List<Map<String, dynamic>>> getData() async {
   return output;
 }
 
-Future<void> sendResponse(String date, String type, bool value) async {
-  User? data = await fetchUserData();
-  final email = data?.email;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  int inVal = 0;
-  if (value) {
-    inVal = 1;
-  } else {
-    inVal = -1;
-  }
-  if (type == 'Lunch') {
-    await _firestore.collection('daily_menu').doc(date).set({
-      'lunch_count': {
-        data?.preference: FieldValue.increment(inVal),
-      }
-    }, SetOptions(merge: true));
-    await _firestore.collection('response').doc(date).set({
-      'lunch': {email: value},
-    }, SetOptions(merge: true));
-  } else if (type == 'Breakfast') {
-    await _firestore.collection('daily_menu').doc(date).set({
-      'breakfast_count': {
-        data?.preference: FieldValue.increment(inVal),
-      }
-    }, SetOptions(merge: true));
-    await _firestore.collection('response').doc(date).set({
-      'breakfast': {email: value},
-    }, SetOptions(merge: true));
-  } else {
-    await _firestore.collection('daily_menu').doc(date).set({
-      'dinner_count': {
-        data?.preference: FieldValue.increment(inVal),
-      }
-    }, SetOptions(merge: true));
-    await _firestore.collection('response').doc(date).set({
-      'dinner': {email: value},
-    }, SetOptions(merge: true));
-  }
-}
-
 Future<void> get dataForUnitName async {
   print("Unit Names Data Collection Started ................");
   QuerySnapshot<Map<String, dynamic>>? unitNames = await getDataForUnitNames();
