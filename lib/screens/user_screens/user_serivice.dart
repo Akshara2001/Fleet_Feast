@@ -9,8 +9,9 @@ class UserService {
 
   Future<bool> addUser(User user) async {
     try {
-      await signUpWithEmail(user.email, user.password).then((user) async {
-        await user?.sendEmailVerification();
+      await signUpWithEmail(user.email, user.password)
+          .then((userCredential) async {
+        await userCredential?.sendEmailVerification();
       });
       await _firestore.collection('users').doc(user.email).set(user.toMap());
       print("User Added");
@@ -18,6 +19,17 @@ class UserService {
     } catch (error) {
       print("Failed to add user: $error");
       return false;
+    }
+  }
+
+  Future<bool> userExists(String email) async {
+    try {
+      DocumentSnapshot doc =
+          await _firestore.collection('users').doc(email).get();
+      return doc.exists; // Return true if the document exists
+    } catch (error) {
+      print("Failed to check if user exists: $error");
+      return false; // In case of an error, assume the user does not exist
     }
   }
 

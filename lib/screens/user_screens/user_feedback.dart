@@ -78,7 +78,8 @@ class _UserFeedbackState extends State<UserFeedback> {
     if (pickedDate != null) {
       setState(() {
         _selectedDate = pickedDate;
-        String formattedDate = DateFormat('dd-MM-yyyy').format(pickedDate);
+        String formattedDate =
+            DateFormat('yyyy-MM-dd').format(pickedDate); // Change format here
         _dateController.text = formattedDate;
       });
     }
@@ -89,7 +90,8 @@ class _UserFeedbackState extends State<UserFeedback> {
 
     try {
       // Format the date to match the format used in Firestore
-      final formattedDate = DateFormat('dd-MM-yyyy').format(_selectedDate!);
+      final formattedDate =
+          DateFormat('yyyy-MM-dd').format(_selectedDate!); // Change format here
 
       // Query the daily_menus collection where the date field matches the formatted date
       final querySnapshot = await FirebaseFirestore.instance
@@ -147,7 +149,8 @@ class _UserFeedbackState extends State<UserFeedback> {
     try {
       await feedbackCollection.add({
         'date': _selectedDate != null
-            ? DateFormat('dd-MM-yyyy').format(_selectedDate!)
+            ? DateFormat('yyyy-MM-dd')
+                .format(_selectedDate!) // Change format here
             : null,
         'day': _selectedDate != null ? _getDayOfWeek(_selectedDate!) : null,
         'feedback': _feedbackController.text,

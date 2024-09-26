@@ -28,10 +28,16 @@ class _UserProfileState extends State<UserProfile>
   bool _isLoading = true;
   String _errorMessage = '';
   late User _userData;
+
+  // Controllers for text fields
   final TextEditingController _lastDateController = TextEditingController();
   final TextEditingController _fromDateController = TextEditingController();
   final TextEditingController _toDateController = TextEditingController();
+  final TextEditingController _preferenceController = TextEditingController();
+  final TextEditingController _unitIdController = TextEditingController();
+
   bool _showLeaveDetails = false;
+  bool _isEditing = false;
   DateTime? _fromDate;
 
   @override
@@ -53,6 +59,8 @@ class _UserProfileState extends State<UserProfile>
           _toDateController.text = data.toDate != null
               ? DateFormat.yMMMd().format(data.toDate!)
               : '';
+          _preferenceController.text = data.preference;
+          _unitIdController.text = data.unitId;
           _fromDate = data.fromDate;
           _isLoading = false;
         });
@@ -67,52 +75,18 @@ class _UserProfileState extends State<UserProfile>
     }
   }
 
-  // void _updateUserData() async {
-  //   try {
-  //     final updatedUser = User(
-  //       name: _userData.name,
-  //       phone: _userData.phone,
-  //       preference: _userData.preference,
-  //       unitId: _userData.unitId,
-  //       lastDate: _userData.lastDate,
-  //       fromDate: _fromDateController.text.isNotEmpty
-  //           ? DateFormat.yMMMd().parse(_fromDateController.text)
-  //           : null,
-  //       toDate: _toDateController.text.isNotEmpty
-  //           ? DateFormat.yMMMd().parse(_toDateController.text)
-  //           : null,
-  //       email: _userData.email,
-  //       password: _userData.password,
-  //       isApproved: _userData.isApproved,
-  //     );
-
-  //     final UserService userService = UserService();
-  //     bool success = await userService.updateUser(updatedUser);
-
-  //     if (success) {
-  //       ScaffoldMessenger.of(context).showSnackBar(
-  //         SnackBar(content: Text('Profile updated successfully')),
-  //       );
-  //     } else {
-  //       ScaffoldMessenger.of(context).showSnackBar(
-  //         SnackBar(content: Text('Failed to update profile')),
-  //       );
-  //     }
-  //   } catch (e) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       SnackBar(content: Text('Failed to update profile')),
-  //     );
-  //   }
-  // }
-
   void _updateUserData() async {
     try {
+      DateTime? lastDate = _lastDateController.text.isNotEmpty
+          ? DateFormat.yMMMd().parse(_lastDateController.text)
+          : null;
+
       final updatedUser = User(
         name: _userData.name,
         phone: _userData.phone,
-        preference: _userData.preference,
-        unitId: _userData.unitId,
-        lastDate: _userData.lastDate,
+        preference: _preferenceController.text,
+        unitId: _unitIdController.text,
+        lastDate: _userData.lastDate, // Handle nullable value here
         fromDate: _fromDateController.text.isNotEmpty
             ? DateFormat.yMMMd().parse(_fromDateController.text)
             : null,
@@ -129,6 +103,7 @@ class _UserProfileState extends State<UserProfile>
 
       if (success) {
         setState(() {
+          _isEditing = false; // Exit editing mode
           _showLeaveDetails = false; // Automatically close dropdown
         });
         ScaffoldMessenger.of(context).showSnackBar(
@@ -158,7 +133,7 @@ class _UserProfileState extends State<UserProfile>
     DateTime? selectedDate = await showDatePicker(
       context: context,
       initialDate: initialDate,
-      firstDate: firstDate ?? DateTime.now(), // Default to now for "From" date
+      firstDate: firstDate ?? DateTime.now(),
       lastDate: lastDate ?? DateTime(2100),
     );
     if (selectedDate != null) {
@@ -166,8 +141,7 @@ class _UserProfileState extends State<UserProfile>
         controller.text = DateFormat.yMMMd().format(selectedDate);
         if (controller == _fromDateController) {
           _fromDate = selectedDate;
-          // Ensure "To" date is reset if "From" date changes
-          _toDateController.clear();
+          _toDateController.clear(); // Clear "To" date when "From" date changes
         }
       });
     }
@@ -193,53 +167,80 @@ class _UserProfileState extends State<UserProfile>
         final userData = snapshot.data!;
 
         return SingleChildScrollView(
-          child: Padding(
+          child: Container(
+            color: Colors.white,
             padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Heading with underline
-                const Text(
-                  'Profile',
-                  style: TextStyle(
-                    color: AppColors.black,
-                    fontSize: 28.0,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // Display user information
-                _buildInfoBox('Name', userData.name),
-                _buildInfoBox('Phone', userData.phone),
-                _buildInfoBox('Email', userData.email),
-                _buildInfoBox('Preference', userData.preference),
-                _buildInfoBox('Unit ID',
-                    userData.unitId), // Display Unit ID as a simple text
-                SizedBox(height: 10),
-
-                // Last Date section
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  child: TextField(
-                    controller: _lastDateController,
-                    decoration: InputDecoration(
-                      labelText: 'Last Date',
-                      border: OutlineInputBorder(),
-                      suffixIcon: IconButton(
-                        icon: Icon(Icons.today),
-                        onPressed: () => _selectDate(_lastDateController),
-                      ),
+                // Edit icon in the top right corner
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: IconButton(
+                    icon: Icon(
+                      _isEditing ? Icons.done : Icons.edit,
+                      color: Colors.blue,
                     ),
-                    keyboardType: TextInputType.datetime,
-                    onSubmitted: (value) => _updateUserData(),
+                    onPressed: () {
+                      setState(() {
+                        _isEditing = !_isEditing; // Toggle editing mode
+                      });
+                    },
                   ),
                 ),
 
-                SizedBox(height: 20),
+                const SizedBox(height: 20), // Spacing
 
-                // Leave/ Ty Dy Details section with dropdown
+                // User's name at the center
+                Center(
+                  child: Text(
+                    userData.name,
+                    style: const TextStyle(
+                      fontSize: 24.0,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8), // Spacing
+
+                // User's phone and email center-aligned
+                Center(
+                  child: Column(
+                    children: [
+                      Text(
+                        userData.phone,
+                        style: const TextStyle(fontSize: 16.0),
+                      ),
+                      const SizedBox(height: 4), // Spacing
+                      Text(
+                        userData.email,
+                        style: const TextStyle(fontSize: 16.0),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20), // Spacing
+
+                // Editable fields for preference, unit ID, and last date
+                if (_isEditing) ...[
+                  _buildUnderlinedInputField(
+                      'Preference', _preferenceController),
+                  SizedBox(height: 10),
+                  _buildUnderlinedInputField('Unit ID', _unitIdController),
+                  SizedBox(height: 10),
+                  _buildUnderlinedInputField('Last Date', _lastDateController),
+                ] else ...[
+                  _buildInfoBox('Preference', _userData.preference),
+                  SizedBox(height: 10),
+                  _buildInfoBox('Unit ID', _userData.unitId),
+                  SizedBox(height: 10),
+                  _buildInfoBox('Last Date',
+                      DateFormat.yMMMd().format(userData.lastDate)),
+                ],
+
+                SizedBox(height: 20), // Space between entries
+
+                // Leave/Ty Dy Details section with dropdown
                 GestureDetector(
                   onTap: () {
                     setState(() {
@@ -251,7 +252,7 @@ class _UserProfileState extends State<UserProfile>
                     children: [
                       const Expanded(
                         child: Text(
-                          'Leave/ Ty Dy Details',
+                          'Leave/Ty Dy Details',
                           style: TextStyle(
                             fontSize: 18.0,
                             fontWeight: FontWeight.w600,
@@ -270,22 +271,19 @@ class _UserProfileState extends State<UserProfile>
                 if (_showLeaveDetails) ...[
                   SizedBox(height: 10),
                   _buildDateField('From', _fromDateController,
-                      firstDate: DateTime.now(), // Disable past dates
-                      lastDate: null),
+                      firstDate: DateTime.now()), // Disable past dates
                   SizedBox(height: 10),
                   _buildDateField('To', _toDateController,
                       firstDate:
-                          _fromDate, // Disable dates before the From date
-                      lastDate: null),
-
+                          _fromDate), // Disable dates before the From date
                   SizedBox(height: 20),
 
                   // Save button
                   Align(
                     alignment: Alignment.centerRight,
                     child: SizedBox(
-                      width: 120.0, // Adjust the width as needed
-                      height: 36.0, // Adjust the height as needed
+                      width: 120.0,
+                      height: 36.0,
                       child: ElevatedButton(
                         onPressed: _updateUserData,
                         child: const Text(
@@ -300,7 +298,7 @@ class _UserProfileState extends State<UserProfile>
                   ),
                 ],
 
-                SizedBox(height: 20),
+                SizedBox(height: 20), // Space between entries
 
                 // Logout button
                 SizedBox(
@@ -313,8 +311,7 @@ class _UserProfileState extends State<UserProfile>
                         context,
                         MaterialPageRoute(
                             builder: (context) => const UserLogin()),
-                        (Route<dynamic> route) =>
-                            false, // This removes all previous routes
+                        (Route<dynamic> route) => false,
                       );
                     },
                     child: const Text(
@@ -339,20 +336,16 @@ class _UserProfileState extends State<UserProfile>
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: TextField(
-        controller: TextEditingController(text: value),
-        decoration: InputDecoration(
-          labelText: label,
-          border: OutlineInputBorder(),
-        ),
-        readOnly: true,
+      child: Text(
+        value,
+        style: const TextStyle(fontSize: 16.0),
       ),
     );
   }
 
-  // Helper method to build a date input field with calendar icon
-  Widget _buildDateField(String label, TextEditingController controller,
-      {DateTime? firstDate, DateTime? lastDate}) {
+  // Helper method to build an underlined TextField
+  Widget _buildUnderlinedInputField(
+      String label, TextEditingController controller) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -360,11 +353,32 @@ class _UserProfileState extends State<UserProfile>
         controller: controller,
         decoration: InputDecoration(
           labelText: label,
-          border: OutlineInputBorder(),
+          labelStyle: TextStyle(color: Colors.grey), // Optional label color
+          focusedBorder: UnderlineInputBorder(
+            borderSide: BorderSide(color: Colors.blue), // Focused color
+          ),
+          enabledBorder: UnderlineInputBorder(
+            borderSide: BorderSide(color: Colors.grey), // Default color
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Helper method to build a date input field with calendar icon
+  Widget _buildDateField(String label, TextEditingController controller,
+      {DateTime? firstDate}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: TextField(
+        controller: controller,
+        decoration: InputDecoration(
+          labelText: label,
+          border: UnderlineInputBorder(),
           suffixIcon: IconButton(
             icon: Icon(Icons.today),
-            onPressed: () => _selectDate(controller,
-                firstDate: firstDate, lastDate: lastDate),
+            onPressed: () => _selectDate(controller, firstDate: firstDate),
           ),
         ),
         keyboardType: TextInputType.datetime,
